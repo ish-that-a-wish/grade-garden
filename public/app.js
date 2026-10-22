@@ -5,15 +5,17 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const DAY = 864e5;
   const COLORS = ["pink", "lav", "mint", "sky", "peach", "butter"];
-  const LETTERS = [[93, "A"], [90, "A-"], [87, "B+"], [83, "B"], [80, "B-"], [77, "C+"], [73, "C"], [70, "C-"], [67, "D+"], [60, "D"], [0, "F"]];
-  const TARGETS = [93, 90, 87, 83, 80, 77, 73, 70];
+  const LETTERS = [[92.5, "A"], [89.5, "A-"], [87, "B+"], [83, "B"], [80, "B-"], [77, "C+"], [73, "C"], [70, "C-"], [67, "D+"], [60, "D"], [0, "F"]];
+  const TARGETS = [92.5, 89.5, 87, 83, 80, 77, 73, 70];
   const TYPE_LABEL = { online_text_entry: "Text", online_url: "Link", online_upload: "File" };
 
   let data = null;
   let filter = load("gg.filter", "all");
   let targets = load("gg.targets", {});
+  for (const k in targets) targets[k] = { 93: 92.5, 90: 89.5 }[targets[k]] ?? targets[k]; // old cutoffs
   let policies = load("gg.policies", {});
   let popped = load("gg.popped", {});
+  let showAllQueue = false, showAllDue = false;
   let lastAll = [];
   const DEFAULT_POLICY = { rate: 10, per: "day", cap: 50, accepts: true };
   const policyOf = (cid) => ({ ...DEFAULT_POLICY, ...(policies[cid] || {}) });
@@ -68,7 +70,7 @@
     const computed = gradeOf(course, gs);
     const current = course.score ?? computed;
     const color = COLORS[idx % COLORS.length];
-    const target = targets[course.id] ?? 90;
+    const target = targets[course.id] ?? 89.5;
 
     const live = course.assignments.filter(counts);
     const isMissing = (a) =>
@@ -142,15 +144,9 @@
       `<span class="stat"><i style="background:var(--lav);color:var(--lav-ink)">∅</i><b class="num">${pct(avg)}</b> average</span>`,
       `<span class="stat"><i style="background:var(--sky);color:var(--sky-ink)">◷</i><b class="num">${dueWeek}</b> due this week</span>`,
       `<span class="stat"><i style="background:${missingCount ? "var(--bad-bg);color:var(--bad)" : "var(--good-bg);color:var(--good)"}">!</i><b class="num">${missingCount}</b> missing</span>`,
-      `<span class="stat"><i style="background:var(--peach);color:var(--peach-ink)">↗</i><b class="num">${below}</b> below target</span>`,
     ].join("");
 
     $("#demoNote").hidden = !data.demo;
-
-    // filters
-    $("#filters").innerHTML =
-      `<button class="chip" data-f="all" aria-pressed="${filter === "all"}">All classes</button>` +
-      all.map((x) => `<button class="chip" data-f="${x.course.id}" aria-pressed="${String(filter) === String(x.course.id)}"><span class="dot" style="background:var(--${x.color}-ink)"></span> ${esc(x.course.code || x.course.name)}</button>`).join("");
 
     // course cards
     const C = 2 * Math.PI * 32;
@@ -193,24 +189,24 @@
   }
 
   function renderDue(shown) {
-    const now = Date.now(), end = now + 21 * DAY;
+    const now = Date.now(), end = now + (showAllDue ? 21 : 7) * DAY;
     const items = shown.flatMap((x) => x.course.assignments.filter((a) => a.due && +new Date(a.due) >= now - 3600e3 && +new Date(a.due) <= end).map((a) => ({ a, x })))
       .sort((p, q) => new Date(p.a.due) - new Date(q.a.due));
-    if (!items.length) { $("#due").innerHTML = `<li class="empty">Nothing due in the next three weeks.</li>`; return; }
+    const toggle = `<li class="qfoot"><button class="linkish" data-due-toggle>${showAllDue ? "Show just this week" : "Show the next 3 weeks"}</button></li>`;
+    if (!items.length) { $("#due").innerHTML = `<li class="empty">Nothing due ${showAllDue ? "in the next three weeks" : "this week"}.</li>` + toggle; return; }
     let lastWeek = null;
     $("#due").innerHTML = items.map(({ a, x }) => {
       const d = new Date(a.due);
       const wk = +d - now < 7 * DAY ? "This week" : +d - now < 14 * DAY ? "Next week" : "Later";
-      const head = wk !== lastWeek ? `<li class="group-label">${wk}</li>` : "";
+      const head = showAllDue && wk !== lastWeek ? `<li class="group-label">${wk}</li>` : "";
       lastWeek = wk;
-      const how = a.types.length ? a.types.map((t) => TYPE_LABEL[t]).join(" / ") : "Not submitted online";
       return `${head}<li class="row" style="${cvars(x.color)}">
         <div class="when"><span>${d.toLocaleDateString(undefined, { month: "short" })}</span><b class="num">${d.getDate()}</b></div>
         <div class="what"><div class="t">${a.url && a.url !== "#" ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.name)}</a>` : esc(a.name)}</div>
-          <div class="m"><span><span class="dot" style="background:var(--c-ink)"></span> ${esc(x.course.code)}</span><span>${relDay(a.due)}, ${fmtTime(a.due)}</span><span class="num">${pts(a.points)} pts</span><span>${how}</span></div></div>
-        <div class="act">${statusPill(a)}${submitBtn(a, x)}</div>
+          <div class="m"><span><span class="dot" style="background:var(--c-ink)"></span> ${esc(x.course.code)}</span><span>${relDay(a.due)}, ${fmtTime(a.due)}</span></div></div>
+        <div class="act">${statusPill(a)}</div>
       </li>`;
-    }).join("");
+    }).join("") + toggle;
   }
 
   /* ---------- late penalties + priority queue ---------- */
@@ -279,7 +275,8 @@
           const lateNote = !p.accepts ? "no late work accepted" : `late costs ${perDayLoss.toFixed(1)}%${p.per === "day" ? " a day" : p.per === "week" ? " a week" : ""}`;
           why = `Due ${relDay(a.due)}, ${fmtTime(a.due)} · worth <b class="num">${value.toFixed(1)}%</b> · ${lateNote}`;
         }
-        items.push({ a, x, late: it.late, value, runway, why, priority: value / runway });
+        const short = it.late ? `${Math.max(1, Math.ceil((now - due) / DAY))}d late · ${value.toFixed(1)}%` : `${relDay(a.due)} · ${value.toFixed(1)}%`;
+        items.push({ a, x, late: it.late, value, runway, why, short, priority: value / runway });
       }
     }
     items.sort((p, q) => q.priority - p.priority || p.runway - q.runway);
@@ -305,12 +302,12 @@
         <div class="btns">${actions(top, true)}${top.a.url && top.a.url !== "#" ? `<a class="btn small" href="${esc(top.a.url)}" target="_blank" rel="noopener">Open in Canvas</a>` : ""}</div>
       </div>`;
       if (rest.length) {
-        html += `<ol class="qlist">${rest.slice(0, 12).map((it) => `<li class="qrow" style="${cvars(it.x.color)}">
+        html += `<ol class="qlist">${rest.slice(0, showAllQueue ? 99 : 4).map((it) => `<li class="qrow" style="${cvars(it.x.color)}">
           <div class="what"><div class="t">${esc(it.a.name)}</div>
-            <div class="m"><span><span class="dot" style="background:var(--c-ink)"></span> ${esc(it.x.course.code)}</span>${it.late ? `<span class="pill bad">Late</span>` : ""}<span>${it.why}</span></div></div>
+            <div class="m"><span><span class="dot" style="background:var(--c-ink)"></span> ${esc(it.x.course.code)}</span><span class="num">${it.short}</span></div></div>
           <div class="act">${actions(it, false)}</div>
         </li>`).join("")}</ol>`;
-        if (rest.length > 12) html += `<div class="qfoot">+${rest.length - 12} more further down</div>`;
+        if (rest.length > 4) html += `<div class="qfoot"><button class="linkish" data-q-toggle>${showAllQueue ? "Show less" : `Show all ${rest.length + 1}`}</button></div>`;
       }
     }
     if (lostCause.length) {
@@ -342,33 +339,25 @@
 
     if (openMissing.length) {
       const total = openMissing.reduce((s, m) => s + m.cost, 0);
-      steps.push(`Turn in ${openMissing.length === 1 ? "your missing assignment" : `${openMissing.length} missing assignments`} first. Together ${openMissing.length === 1 ? "it's" : "they're"} worth up to <b class="num">${total.toFixed(1)}%</b> of your grade.
+      steps.push(`Turn in missing work first, worth up to <b class="num">${total.toFixed(1)}%</b>.
         <div class="mini">${openMissing.map((m) => `<button class="btn small primary" data-submit="${course.id}:${m.a.id}">${esc(m.a.name)}</button>`).join("")}</div>`);
     }
-    if (lockedMissing.length) {
-      steps.push(`Email your instructor about late credit for <b>${lockedMissing.map((m) => esc(m.a.name)).join(", ")}</b>. Canvas won't take it online anymore, but many teachers accept it once.`);
-    }
+    if (lockedMissing.length) steps.push(`Email about late credit for <b>${lockedMissing.map((m) => esc(m.a.name)).join(", ")}</b>.`);
     if (required != null) {
       const left = upcoming.length + missingInfo.length;
-      if (required <= 0) steps.push(`You've secured ${letter(target)} or better even with zeros on what's left. Keep turning work in to protect the cushion.`);
-      else if (required <= 100) steps.push(`Average <b class="num">${Math.ceil(required)}%</b> on the ${left} remaining assignment${left === 1 ? "" : "s"} to finish at ${letter(target)} (${target}%).`);
-      else steps.push(`Even 100% on everything left reaches about <b class="num">${best.toFixed(1)}%</b> (${letter(best)}). Ask about extra credit or a regrade, or set your target to ${letter(best)}.`);
+      if (required <= 0) steps.push(`${letter(target)} is locked in. Keep the cushion.`);
+      else if (required <= 100) steps.push(`Average <b class="num">${Math.ceil(required)}%</b> on the ${left} assignment${left === 1 ? "" : "s"} left.`);
+      else steps.push(`The most you can reach is <b class="num">${best.toFixed(1)}%</b> (${letter(best)}). Ask about extra credit, or aim for ${letter(best)}.`);
     } else if (current != null && current < target) {
-      steps.push(`There's no more graded work posted yet. Ask your instructor what's still coming and whether extra credit is available.`);
+      steps.push(`No more graded work is posted. Ask what's still coming.`);
     }
     const nextBig = upcoming.filter((u) => u.a.due && new Date(u.a.due) > Date.now()).sort((p, q) => q.cost - p.cost)[0];
-    if (nextBig && nextBig.cost > 0.5) {
-      steps.push(`Make <b>${esc(nextBig.a.name)}</b> (${relDay(nextBig.a.due)}) your focus. It can move this grade by <b class="num">${nextBig.cost.toFixed(1)}%</b>, the most of anything coming up.`);
-    }
-    if (weakGroup && weakGroup.avg < target - 2) {
-      steps.push(`Your <b>${esc(weakGroup.name)}</b> average is <b class="num">${weakGroup.avg.toFixed(0)}%</b>, and that category is ${weakGroup.weight}% of the grade. Review feedback on those and bring questions to office hours.`);
-    }
+    if (nextBig && nextBig.cost > 0.5) steps.push(`Focus on <b>${esc(nextBig.a.name)}</b> (${fmtDay(nextBig.a.due)}), worth <b class="num">${nextBig.cost.toFixed(1)}%</b>.`);
+    if (weakGroup && weakGroup.avg < target - 2) steps.push(`${esc(weakGroup.name)} average is <b class="num">${weakGroup.avg.toFixed(0)}%</b> (${weakGroup.weight}% of the grade). Review feedback before the next one.`);
     const worst = graded.slice().sort((p, q) => q.cost - p.cost)[0];
-    if (worst && worst.cost >= 2) {
-      steps.push(`Ask whether <b>${esc(worst.a.name)}</b> has corrections or a retake. It cost you <b class="num">${worst.cost.toFixed(1)}%</b>.`);
-    }
-    if (!steps.length) steps.push(`Nothing urgent. Keep submitting on time and you'll stay where you are.`);
-    return steps.slice(0, 5);
+    if (worst && worst.cost >= 2) steps.push(`Ask about a retake on <b>${esc(worst.a.name)}</b>, which cost <b class="num">${worst.cost.toFixed(1)}%</b>.`);
+    if (!steps.length) steps.push(`Nothing urgent. Keep submitting on time.`);
+    return steps.slice(0, 3);
   }
 
   function renderPlans(shown) {
@@ -387,7 +376,7 @@
         </div>
         <div class="track" aria-hidden="true"><div class="fill" style="width:${cur == null ? 0 : scale(cur)}%"></div><div class="goal" style="left:calc(${scale(x.target)}% - 1.5px)"></div></div>
         <div class="track-labels num"><span>Now ${pct(cur)}</span><span>Goal ${x.target}%</span></div>
-        <ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>
+        ${cur != null && cur >= x.target && !x.missingInfo.length ? `<p class="calm">On track. Keep turning work in on time.</p>` : `<ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>`}
       </article>`;
     }).join("") || `<div class="empty">Add a class in Canvas to see a plan.</div>`;
   }
@@ -442,6 +431,8 @@
       toast(next ? `Popped ${name}. Next up: ${next.a.name}` : `Popped ${name}. Queue's clear.`);
       return;
     }
+    if (e.target.closest("[data-q-toggle]")) { showAllQueue = !showAllQueue; renderQueue(); return; }
+    if (e.target.closest("[data-due-toggle]")) { showAllDue = !showAllDue; render(); return; }
     if (e.target.closest("[data-restore]")) { popped = {}; save("gg.popped", popped); renderQueue(); }
   });
   document.addEventListener("change", (e) => {
