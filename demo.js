@@ -87,6 +87,7 @@ export function demoCourses() {
         a("Map Quiz", -23, 25, 41, 23, { types: ["on_paper"] }),
         a("Paper 1: Primary Source Analysis", -12, 100, 41, 92),
         a("Quiz 2: Classical Empires", -5, 25, 41, 20, { types: ["online_quiz"] }),
+        a("Discussion: Trade Networks", -2, 10, 41, null, { types: ["discussion_topic"], missing: true }),
         a("Reading Quiz: Silk Roads", 4, 15, 41, null, { types: ["online_quiz"] }),
         a("Paper 2: Comparative Essay", 11, 100, 41, null, { types: ["online_upload"] }),
         a("Final Project", 30, 150, 41, null, { types: ["online_upload", "online_url"] }),

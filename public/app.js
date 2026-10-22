@@ -74,7 +74,8 @@
 
     const live = course.assignments.filter(counts);
     const isMissing = (a) =>
-      a.sub.score == null && (a.sub.missing || (a.due && new Date(a.due) < now && !a.sub.submittedAt && a.types.length > 0));
+      a.sub.score == null && !a.sub.submittedAt &&
+      (a.sub.missing || (a.due && new Date(a.due) < now && (a.types.length > 0 || a.inCanvas)));
     const missing = live.filter(isMissing);
     const remaining = live.filter((a) => a.sub.score == null && !isMissing(a));
 
@@ -256,7 +257,7 @@
         let value, runway, why, perDayLoss;
         if (it.late) {
           const daysLate = (now - due) / DAY;
-          const closed = !p.accepts || (lock && lock < now) || (a.types.length && !a.canSubmit);
+          const closed = !p.accepts || (lock && lock < now) || a.locked || (!a.canSubmit && !a.inCanvas);
           const penNow = closed ? 1 : penaltyAt(p, daysLate);
           const penTomorrow = closed ? 1 : penaltyAt(p, daysLate + 1);
           value = it.cost * (1 - penNow);
@@ -334,15 +335,7 @@
   function planSteps(x) {
     const steps = [];
     const { course, current, target, required, best, missingInfo, upcoming, graded, weakGroup } = x;
-    const openMissing = missingInfo.filter((m) => m.a.canSubmit && !(m.a.lock && new Date(m.a.lock) < Date.now()));
-    const lockedMissing = missingInfo.filter((m) => !openMissing.includes(m));
 
-    if (openMissing.length) {
-      const total = openMissing.reduce((s, m) => s + m.cost, 0);
-      steps.push(`Turn in missing work first, worth up to <b class="num">${total.toFixed(1)}%</b>.
-        <div class="mini">${openMissing.map((m) => `<button class="btn small primary" data-submit="${course.id}:${m.a.id}">${esc(m.a.name)}</button>`).join("")}</div>`);
-    }
-    if (lockedMissing.length) steps.push(`Email about late credit for <b>${lockedMissing.map((m) => esc(m.a.name)).join(", ")}</b>.`);
     if (required != null) {
       const left = upcoming.length + missingInfo.length;
       if (required <= 0) steps.push(`${letter(target)} is locked in. Keep the cushion.`);
@@ -358,6 +351,27 @@
     if (worst && worst.cost >= 2) steps.push(`Ask about a retake on <b>${esc(worst.a.name)}</b>, which cost <b class="num">${worst.cost.toFixed(1)}%</b>.`);
     if (!steps.length) steps.push(`Nothing urgent. Keep submitting on time.`);
     return steps.slice(0, 3);
+  }
+
+  // Every overdue item for a class, valued after its late penalty.
+  function overdueList(x) {
+    const p = policyOf(x.course.id), now = Date.now();
+    const rows = x.missingInfo.map(({ a, cost }) => {
+      const daysLate = a.due ? (now - new Date(a.due)) / DAY : 0;
+      const closed = !p.accepts || (a.lock && new Date(a.lock) < now) || a.locked || (!a.canSubmit && !a.inCanvas);
+      const value = closed ? 0 : cost * (1 - penaltyAt(p, daysLate));
+      const dl = Math.max(1, Math.ceil(daysLate));
+      const meta = closed
+        ? `${dl}d late · closed, email your teacher`
+        : `${dl}d late · worth <b class="num">${value.toFixed(1)}%</b>${a.lock ? ` · closes ${relDay(a.lock)}` : ""}`;
+      const btn = closed ? ""
+        : a.canSubmit ? `<button class="btn small go" data-submit="${x.course.id}:${a.id}">Turn in</button>`
+        : a.url && a.url !== "#" ? `<a class="btn small" href="${esc(a.url)}" target="_blank" rel="noopener">Open in Canvas</a>`
+        : `<span class="pill soft">Do in Canvas</span>`;
+      return { value, closed, html: `<li><div class="what"><div class="t">${esc(a.name)}</div><div class="m">${meta}</div></div>${btn}</li>` };
+    }).sort((p, q) => q.value - p.value || p.closed - q.closed);
+    if (!rows.length) return "";
+    return `<div class="todo"><div class="todo-h">To turn in · ${rows.length}</div><ul>${rows.map((r) => r.html).join("")}</ul></div>`;
   }
 
   function renderPlans(shown) {
@@ -376,7 +390,7 @@
         </div>
         <div class="track" aria-hidden="true"><div class="fill" style="width:${cur == null ? 0 : scale(cur)}%"></div><div class="goal" style="left:calc(${scale(x.target)}% - 1.5px)"></div></div>
         <div class="track-labels num"><span>Now ${pct(cur)}</span><span>Goal ${x.target}%</span></div>
-        ${cur != null && cur >= x.target && !x.missingInfo.length ? `<p class="calm">On track. Keep turning work in on time.</p>` : `<ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>`}
+        ${overdueList(x)}${cur != null && cur >= x.target ? `<p class="calm">On track. Keep turning work in on time.</p>` : `<ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>`}
       </article>`;
     }).join("") || `<div class="empty">Add a class in Canvas to see a plan.</div>`;
   }

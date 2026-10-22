@@ -99,6 +99,8 @@ async function getAll(p) {
 }
 
 const SUBMITTABLE = ["online_text_entry", "online_url", "online_upload"];
+// Work that can only be done inside Canvas itself.
+const CANVAS_ONLY = ["online_quiz", "discussion_topic", "external_tool", "media_recording", "student_annotation"];
 
 function slimAssignment(a) {
   const s = a.submission || {};
@@ -114,6 +116,8 @@ function slimAssignment(a) {
     omit: !!a.omit_from_final_grade,
     types,
     canSubmit: types.length > 0 && !a.locked_for_user,
+    inCanvas: !a.locked_for_user && (a.submission_types || []).some((t) => CANVAS_ONLY.includes(t)),
+    locked: !!a.locked_for_user,
     allowedExt: a.allowed_extensions || [],
     sub: {
       score: s.score ?? null,
