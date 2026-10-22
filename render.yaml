@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: grade-garden
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: CANVAS_URL
+        sync: false
+      - key: CANVAS_TOKEN
+        sync: false
+      - key: APP_PASSWORD
+        sync: false

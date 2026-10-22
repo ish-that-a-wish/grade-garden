@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Grade Garden</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23F7C6D9'/%3E%3Cpath d='M16 24v-9M16 16c-4 0-6-3-6-6 4 0 6 3 6 6Zm0 0c4 0 6-3 6-6-4 0-6 3-6 6Z' fill='%23C2D9A8' stroke='%23574766' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one calm column of soft "beds" — courses up top, due-soon + deficits side by side, plan below. */
+:root {
+  --bg: #FBF6F9;
+  --surface: #FFFFFF;
+  --sunk: #F5EEF4;
+  --ink: #45384F;
+  --muted: #8C7F96;
+  --line: #EEE3EC;
+  --pink: #F9CFE0;   --pink-ink: #B4497A;
+  --lav: #DDD2F7;    --lav-ink: #6E55B8;
+  --mint: #CDEBDD;   --mint-ink: #2F8564;
+  --butter: #FBEBB8; --butter-ink: #9A7414;
+  --sky: #D2E5F8;    --sky-ink: #3B6EA5;
+  --peach: #FAD7C6;  --peach-ink: #B05A33;
+  --good: #2F8564;  --good-bg: #DDF2E7;
+  --warn: #A06A07;  --warn-bg: #FCEFC9;
+  --bad: #C2416E;   --bad-bg: #FCE0EA;
+  --focus: #9A7FE0;
+  --shadow: 0 1px 2px rgba(69,56,79,.05), 0 6px 20px rgba(69,56,79,.05);
+  --display: "Fredoka", "Baloo 2", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  --r-lg: 22px; --r-md: 16px; --r-sm: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1E1A23; --surface: #27222D; --sunk: #2F2936; --ink: #F1E9F5; --muted: #A99DB3; --line: #3A3342;
+    --pink: #4E3343;  --pink-ink: #F4A9C8;
+    --lav: #3D3557;   --lav-ink: #C7B6F5;
+    --mint: #2D4539;  --mint-ink: #9FDDC0;
+    --butter: #4A4128; --butter-ink: #F0D78A;
+    --sky: #2D3E52;   --sky-ink: #A9CBF0;
+    --peach: #4C3328; --peach-ink: #F3B79A;
+    --good: #9FDDC0; --good-bg: #24392F;
+    --warn: #F0D78A; --warn-bg: #3D3522;
+    --bad: #F4A9C8;  --bad-bg: #43283A;
+    --focus: #C7B6F5;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.18);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1E1A23; --surface: #27222D; --sunk: #2F2936; --ink: #F1E9F5; --muted: #A99DB3; --line: #3A3342;
+  --pink: #4E3343;  --pink-ink: #F4A9C8;
+  --lav: #3D3557;   --lav-ink: #C7B6F5;
+  --mint: #2D4539;  --mint-ink: #9FDDC0;
+  --butter: #4A4128; --butter-ink: #F0D78A;
+  --sky: #2D3E52;   --sky-ink: #A9CBF0;
+  --peach: #4C3328; --peach-ink: #F3B79A;
+  --good: #9FDDC0; --good-bg: #24392F;
+  --warn: #F0D78A; --warn-bg: #3D3522;
+  --bad: #F4A9C8;  --bad-bg: #43283A;
+  --focus: #C7B6F5;
+  --shadow: 0 1px 2px rgba(0,0,0,.25), 0 6px 20px rgba(0,0,0,.18);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--body);
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2.5px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+[hidden] { display: none !important; }
+.num { font-variant-numeric: tabular-nums; }
+
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 19px/1 var(--display); letter-spacing: .01em; }
+.brand svg { width: 30px; height: 30px; }
+.sync { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; cursor: pointer;
+  background: var(--sunk); color: var(--ink); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 13.5px;
+  transition: transform .15s ease, background .15s ease;
+}
+.btn:hover { background: var(--line); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--lav); color: var(--lav-ink); }
+.btn.primary:hover { filter: brightness(.97); }
+.btn.go { background: var(--ink); color: var(--bg); }
+.btn.small { padding: 5px 11px; font-size: 12.5px; }
+.btn[disabled] { opacity: .55; cursor: default; }
+.btn svg { width: 15px; height: 15px; }
+.spin svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* hello */
+.hello { padding-block: 10px 22px; display: grid; gap: 6px; }
+.hello h1 { margin: 0; font: 600 clamp(28px, 4.5vw, 40px)/1.1 var(--display); text-wrap: balance; }
+.hello p { margin: 0; color: var(--muted); font-size: 15.5px; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.stat { background: var(--surface); border-radius: 999px; padding: 7px 14px 7px 8px; display: inline-flex; align-items: center; gap: 8px; box-shadow: var(--shadow); font-size: 14px; }
+.stat b { font: 600 15px/1 var(--display); }
+.stat i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; }
+
+.note { background: var(--butter); color: var(--butter-ink); border-radius: var(--r-md); padding: 12px 16px; margin-bottom: 18px; font-size: 14px; }
+.note strong { font-weight: 600; }
+
+/* filters */
+.filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
+.chip {
+  flex: none; border: 0; cursor: pointer; border-radius: 999px; padding: 7px 14px; font-size: 13.5px; font-weight: 600;
+  background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.chip[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* course cards */
+.courses { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 26px; }
+.course {
+  background: var(--surface); border-radius: var(--r-lg); padding: 16px; box-shadow: var(--shadow);
+  display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: center; text-align: left;
+  border: 0; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease;
+}
+.course:hover { transform: translateY(-2px); }
+.course[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--c-ink), var(--shadow); }
+.ring { position: relative; width: 76px; height: 76px; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .letter { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; line-height: 1; }
+.ring .letter b { font: 600 22px/1 var(--display); color: var(--c-ink); display: block; }
+.ring .letter span { font-size: 11.5px; color: var(--muted); display: block; margin-top: 2px; }
+.course .code { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--c-ink); }
+.course .name { font: 500 16.5px/1.25 var(--display); margin: 2px 0 8px; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.soft { background: var(--sunk); color: var(--muted); }
+
+/* panels */
+.cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; margin-bottom: 18px; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.panel { background: var(--surface); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+.panel h2 { margin: 0 0 4px; font: 600 20px/1.2 var(--display); display: flex; align-items: center; gap: 8px; }
+.panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
+.empty { color: var(--muted); padding: 18px 4px; text-align: center; font-size: 14px; }
+
+.list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.row { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; padding: 10px; border-radius: var(--r-md); }
+.row:hover { background: var(--sunk); }
+.when { text-align: center; border-radius: 14px; padding: 6px 0; background: var(--c-bg); color: var(--c-ink); line-height: 1.05; }
+.when b { display: block; font: 600 19px/1 var(--display); }
+.when span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.what { min-width: 0; }
+.what .t { font-weight: 600; overflow-wrap: anywhere; }
+.what .t a { color: inherit; text-decoration: none; }
+.what .t a:hover { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.what .m { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 2px; }
+.act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.group-label { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 12px 10px 4px; }
+
+/* late policies */
+.policies { background: var(--sunk); border-radius: var(--r-md); padding: 4px 14px; margin-bottom: 14px; }
+.policies summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 8px 0; list-style-position: inside; }
+.policies[open] summary { margin-bottom: 4px; }
+.pol { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.pol .who { flex: 1 1 100%; display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.pol input[type="number"], .pol select { border: 1.5px solid var(--line); background: var(--surface); border-radius: 8px; padding: 4px 6px; font-size: 13.5px; }
+.pol input[type="number"] { width: 58px; }
+.pol label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.pol .off { opacity: .45; }
+.pol-note { font-size: 12.5px; color: var(--muted); padding: 4px 0 10px; }
+
+/* queue */
+.next {
+  border-radius: var(--r-lg); padding: 18px; background: var(--c-bg); color: var(--ink);
+  display: grid; gap: 10px; margin-bottom: 12px;
+}
+.next .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--c-ink); }
+.next .t { font: 600 21px/1.2 var(--display); overflow-wrap: anywhere; }
+.next .why { font-size: 14px; }
+.next .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.next .btn { background: var(--surface); }
+.next .btn.go { background: var(--ink); color: var(--bg); }
+.qlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: q 1; }
+.qrow { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; padding: 9px 8px; border-radius: var(--r-md); counter-increment: q; }
+.qrow:hover { background: var(--sunk); }
+.qrow::before { content: counter(q); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--c-bg); color: var(--c-ink); font: 600 13px/1 var(--display); }
+.qrow .act { flex-direction: row; align-items: center; }
+.score { font: 600 15px/1 var(--display); text-align: right; white-space: nowrap; }
+.score small { display: block; font: 500 11px/1.3 var(--body); color: var(--muted); margin-top: 2px; }
+.lost-box { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-md); background: var(--bad-bg); color: var(--bad); font-size: 13.5px; }
+.qfoot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 13px; margin-top: 12px; }
+.linkish { border: 0; background: none; padding: 0; color: var(--lav-ink); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* plan */
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+@media (max-width: 420px) { .plans { grid-template-columns: 1fr; } }
+.plan { border-radius: var(--r-md); background: var(--sunk); padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.plan-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.plan-head .n { font: 600 16px/1.2 var(--display); display: flex; align-items: center; gap: 8px; }
+.target { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.target select { border: 0; background: var(--surface); border-radius: 999px; padding: 4px 10px; font-weight: 600; cursor: pointer; }
+.track { position: relative; height: 10px; border-radius: 10px; background: var(--surface); }
+.track .fill { position: absolute; inset: 0 auto 0 0; border-radius: 10px; background: var(--c-bg); box-shadow: inset 0 0 0 1.5px var(--c-ink); }
+.track .goal { position: absolute; top: -4px; bottom: -4px; width: 3px; border-radius: 3px; background: var(--ink); }
+.track-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: -4px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: step; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 14px; counter-increment: step; }
+.steps li::before {
+  content: counter(step); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); color: var(--c-ink); font: 600 13px/1 var(--display);
+}
+.steps li > div { min-width: 0; }
+.steps .mini { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* dialog */
+dialog {
+  border: 0; border-radius: var(--r-lg); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  background: var(--surface); color: var(--ink); box-shadow: 0 30px 80px rgba(40,25,50,.25);
+}
+dialog::backdrop { background: rgba(60,40,70,.28); backdrop-filter: blur(3px); }
+.dlg { display: grid; gap: 14px; padding: 22px; }
+.dlg h3 { margin: 0; font: 600 21px/1.2 var(--display); }
+.dlg .meta { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 999px; padding: 4px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+label.f { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.field { width: 100%; border: 1.5px solid var(--line); background: var(--bg); border-radius: var(--r-sm); padding: 10px 12px; font-size: 15px; font-weight: 400; }
+.field:focus { outline: none; border-color: var(--focus); }
+textarea.field { min-height: 140px; resize: vertical; }
+.drop {
+  border: 2px dashed var(--line); border-radius: var(--r-md); padding: 22px; text-align: center; color: var(--muted);
+  cursor: pointer; background: var(--bg); transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--focus); background: var(--lav); }
+.drop b { color: var(--ink); }
+.files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.files li { display: flex; justify-content: space-between; gap: 10px; background: var(--sunk); padding: 7px 12px; border-radius: var(--r-sm); font-size: 13.5px; }
+.files li span { overflow-wrap: anywhere; min-width: 0; }
+.files button { border: 0; background: none; cursor: pointer; color: var(--muted); font-weight: 600; }
+.dlg-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.confirm-line { font-size: 13px; color: var(--muted); }
+.err { background: var(--bad-bg); color: var(--bad); border-radius: var(--r-sm); padding: 10px 12px; font-size: 13.5px; }
+
+/* sign in */
+.signin { min-height: 80dvh; display: grid; place-items: center; }
+.signin form { background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 28px; width: min(380px, 100%); display: grid; gap: 14px; }
+.signin h1 { margin: 0; font: 600 26px/1.1 var(--display); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-weight: 600; font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2); z-index: 50; max-width: calc(100vw - 32px);
+}
+.skeleton { background: var(--surface); border-radius: var(--r-lg); height: 108px; box-shadow: var(--shadow); opacity: .7; }
+footer { color: var(--muted); font-size: 12.5px; padding-block: 26px 34px; text-align: center; }
+
+@media (max-width: 520px) {
+  .row { grid-template-columns: 46px 1fr; }
+  .row .act { grid-column: 2; flex-direction: row; justify-content: flex-start; align-items: center; }
+  .qrow { grid-template-columns: 28px 1fr; }
+  .qrow .act { grid-column: 2; justify-content: space-between; }
+  .sync span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--pink)"/><path d="M16 24v-9M16 16c-4 0-6-3-6-6 4 0 6 3 6 6Zm0 0c4 0 6-3 6-6-4 0-6 3-6 6Z" fill="var(--mint)" stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Grade Garden
+    </div>
+    <div class="sync">
+      <span id="synced" class="num">Syncing…</span>
+      <button class="btn" id="refresh" type="button" aria-label="Refresh from Canvas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <section class="signin" id="signin" hidden>
+    <form id="signinForm">
+      <h1>Welcome back</h1>
+      <p style="margin:0;color:var(--muted)">Enter your dashboard password to see your grades.</p>
+      <input class="field" id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+      <div class="err" id="signinErr" hidden></div>
+      <button class="btn go" type="submit">Open my dashboard</button>
+    </form>
+  </section>
+
+  <main id="app">
+    <section class="hello">
+      <h1 id="hi">Hi there</h1>
+      <p id="today"></p>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <div class="note" id="demoNote" hidden>
+      <strong>You're looking at example courses.</strong> Add your Canvas address and access token (see the README) and this switches to your real grades.
+    </div>
+    <div class="err" id="loadErr" hidden style="margin-bottom:18px"></div>
+
+    <nav class="filters" id="filters" aria-label="Filter by course"></nav>
+    <section class="courses" id="courses" aria-label="Courses">
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </section>
+
+    <div class="cols">
+      <section class="panel" aria-labelledby="qH">
+        <h2 id="qH">Priority queue</h2>
+        <p class="sub">Missing and upcoming work, ranked by how much grade you save per day by doing it now. Work from the top and pop each one off.</p>
+        <details class="policies" id="policyBox">
+          <summary>Late penalties by class</summary>
+          <div id="policies"></div>
+        </details>
+        <div id="queue"></div>
+      </section>
+      <section class="panel" aria-labelledby="dueH">
+        <h2 id="dueH">Due soon</h2>
+        <p class="sub">The next three weeks, soonest first.</p>
+        <ul class="list" id="due"></ul>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="planH">
+      <h2 id="planH">Your plan</h2>
+      <p class="sub">Pick a target for each class. Steps are in priority order and update as Canvas changes.</p>
+      <div class="plans" id="plans"></div>
+    </section>
+  </main>
+
+  <footer>Grades come straight from Canvas and refresh every 2 minutes. Canvas is always the official record.</footer>
+</div>
+
+<dialog id="submitDlg" aria-labelledby="dlgTitle">
+  <form class="dlg" id="submitForm" method="dialog">
+    <div>
+      <h3 id="dlgTitle"></h3>
+      <div class="meta" id="dlgMeta"></div>
+    </div>
+    <div class="seg" id="dlgTypes" role="group" aria-label="Submission type"></div>
+    <label class="f" data-pane="online_text_entry">Your answer
+      <textarea class="field" id="dlgBody" placeholder="Type or paste your work here"></textarea>
+    </label>
+    <label class="f" data-pane="online_url">Link
+      <input class="field" id="dlgUrl" type="url" placeholder="https://docs.google.com/…">
+    </label>
+    <div data-pane="online_upload" style="display:grid;gap:8px">
+      <label class="drop" id="drop" for="dlgFiles"><b>Choose files</b> or drop them here<br><small id="extNote"></small></label>
+      <input id="dlgFiles" type="file" multiple hidden>
+      <ul class="files" id="fileList"></ul>
+    </div>
+    <label class="f">Comment for your teacher (optional)
+      <input class="field" id="dlgComment" type="text" placeholder="Anything they should know">
+    </label>
+    <div class="err" id="dlgErr" hidden></div>
+    <div class="dlg-foot">
+      <span class="confirm-line" id="confirmLine">This sends your work to Canvas.</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" type="button" id="dlgCancel">Cancel</button>
+        <button class="btn go" type="button" id="dlgSend">Turn in</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
