@@ -134,18 +134,6 @@
     // greeting + stats
     const first = (data.me.name || "").split(" ")[0];
     $("#hi").textContent = first ? `Hi, ${first}` : "Hi there";
-    $("#today").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-    const scores = all.map((x) => x.current).filter((v) => v != null);
-    const avg = scores.length ? scores.reduce((s, v) => s + v, 0) / scores.length : null;
-    const weekEnd = Date.now() + 7 * DAY;
-    const dueWeek = all.flatMap((x) => x.course.assignments).filter((a) => a.due && +new Date(a.due) >= Date.now() && +new Date(a.due) <= weekEnd && !a.sub.submittedAt && a.sub.score == null).length;
-    const missingCount = all.reduce((s, x) => s + x.missingInfo.length, 0);
-    const below = all.filter((x) => x.current != null && x.current < x.target).length;
-    $("#stats").innerHTML = [
-      `<span class="stat"><i style="background:var(--lav);color:var(--lav-ink)">∅</i><b class="num">${pct(avg)}</b> average</span>`,
-      `<span class="stat"><i style="background:var(--sky);color:var(--sky-ink)">◷</i><b class="num">${dueWeek}</b> due this week</span>`,
-      `<span class="stat"><i style="background:${missingCount ? "var(--bad-bg);color:var(--bad)" : "var(--good-bg);color:var(--good)"}">!</i><b class="num">${missingCount}</b> missing</span>`,
-    ].join("");
 
     $("#demoNote").hidden = !data.demo;
 
@@ -156,9 +144,8 @@
           const p = Math.max(0, Math.min(100, x.current ?? 0));
           const gap = x.current == null ? null : x.current - x.target;
           const status = gap == null ? `<span class="pill soft">No grades yet</span>`
-            : gap >= 0 ? `<span class="pill good">On track for ${letter(x.target)}</span>`
-            : gap > -3 ? `<span class="pill warn num">${Math.abs(gap).toFixed(1)}% below ${letter(x.target)}</span>`
-            : `<span class="pill bad num">${Math.abs(gap).toFixed(1)}% below ${letter(x.target)}</span>`;
+            : gap >= 0 ? `<span class="pill good">On track</span>`
+            : `<span class="pill ${gap > -3 ? "warn" : "bad"} num">−${Math.abs(gap).toFixed(1)}% to ${letter(x.target)}</span>`;
           return `<button class="course" style="${cvars(x.color)}" data-f="${x.course.id}" aria-pressed="${String(filter) === String(x.course.id)}">
             <div class="ring"><svg viewBox="0 0 76 76" aria-hidden="true">
               <circle cx="38" cy="38" r="32" fill="none" stroke="var(--c-bg)" stroke-width="8"/>
@@ -170,7 +157,6 @@
       : `<div class="empty">No active courses found in Canvas.</div>`;
 
     lastAll = all;
-    renderDue(shown);
     renderPolicies(all);
     renderQueue();
     renderPlans(shown);
@@ -218,7 +204,11 @@
     box.innerHTML = all.map((x) => {
       const p = policyOf(x.course.id), id = x.course.id;
       return `<div class="pol" style="${cvars(x.color)}" data-pol="${id}">
-        <div class="who"><span class="dot" style="background:var(--c-ink)"></span>${esc(x.course.code || x.course.name)}</div>
+        <div class="who"><span class="dot" style="background:var(--c-ink)"></span>${esc(x.course.code || x.course.name)}
+          <label class="target" style="margin-left:auto">Target
+            <select id="pol-tgt-${id}" data-target="${id}" aria-label="Target grade for ${esc(x.course.name)}">
+              ${TARGETS.map((t) => `<option value="${t}" ${t === x.target ? "selected" : ""}>${letter(t)} (${t}%)</option>`).join("")}
+            </select></label></div>
         <label><input type="checkbox" id="pol-acc-${id}" data-k="accepts" ${p.accepts ? "checked" : ""}> Takes late work</label>
         <span class="polctl ${p.accepts ? "" : "off"}" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">
           <label>−<input type="number" id="pol-rate-${id}" data-k="rate" min="0" max="100" step="1" value="${p.rate}" ${p.accepts ? "" : "disabled"}>%</label>
@@ -230,7 +220,7 @@
           <label>max <input type="number" id="pol-cap-${id}" data-k="cap" min="0" max="100" step="1" value="${p.cap}" ${p.accepts ? "" : "disabled"}>%</label>
         </span>
       </div>`;
-    }).join("") + `<div class="pol-note">Example: −10% per day, max 50% means 3 days late earns at most 70%. Turn off "Takes late work" for classes that give zeros. Canvas lock dates are respected automatically.</div>`;
+    }).join("");
   }
 
   // Penalty (0–1) after being `days` late under policy p.
@@ -297,18 +287,18 @@
     } else {
       const [top, ...rest] = items;
       html += `<div class="next" style="${cvars(top.x.color)}">
-        <div class="eyebrow">Up next · ${esc(top.x.course.code)}</div>
+        <div class="eyebrow">${esc(top.x.course.code)}</div>
         <div class="t">${esc(top.a.name)}</div>
         <div class="why">${top.why}</div>
         <div class="btns">${actions(top, true)}${top.a.url && top.a.url !== "#" ? `<a class="btn small" href="${esc(top.a.url)}" target="_blank" rel="noopener">Open in Canvas</a>` : ""}</div>
       </div>`;
       if (rest.length) {
-        html += `<ol class="qlist">${rest.slice(0, showAllQueue ? 99 : 4).map((it) => `<li class="qrow" style="${cvars(it.x.color)}">
+        html += `<ol class="qlist">${rest.slice(0, showAllQueue ? 99 : 3).map((it) => `<li class="qrow" style="${cvars(it.x.color)}">
           <div class="what"><div class="t">${esc(it.a.name)}</div>
             <div class="m"><span><span class="dot" style="background:var(--c-ink)"></span> ${esc(it.x.course.code)}</span><span class="num">${it.short}</span></div></div>
           <div class="act">${actions(it, false)}</div>
         </li>`).join("")}</ol>`;
-        if (rest.length > 4) html += `<div class="qfoot"><button class="linkish" data-q-toggle>${showAllQueue ? "Show less" : `Show all ${rest.length + 1}`}</button></div>`;
+        if (rest.length > 3) html += `<div class="qfoot"><button class="linkish" data-q-toggle>${showAllQueue ? "Show less" : `Show all ${rest.length + 1}`}</button></div>`;
       }
     }
     if (lostCause.length) {
@@ -350,7 +340,7 @@
     const worst = graded.slice().sort((p, q) => q.cost - p.cost)[0];
     if (worst && worst.cost >= 2) steps.push(`Ask about a retake on <b>${esc(worst.a.name)}</b>, which cost <b class="num">${worst.cost.toFixed(1)}%</b>.`);
     if (!steps.length) steps.push(`Nothing urgent. Keep submitting on time.`);
-    return steps.slice(0, 3);
+    return steps.slice(0, 2);
   }
 
   // Every overdue item for a class, valued after its late penalty.
@@ -375,24 +365,24 @@
   }
 
   function renderPlans(shown) {
-    const ordered = shown.slice().sort((p, q) => ((p.current ?? 100) - p.target) - ((q.current ?? 100) - q.target));
+    const needs = (x) => x.missingInfo.length > 0 || (x.current != null && x.current < x.target);
+    const ordered = shown.filter(needs).sort((p, q) => ((p.current ?? 100) - p.target) - ((q.current ?? 100) - q.target));
+    const fine = shown.filter((x) => !needs(x));
     $("#plans").innerHTML = ordered.map((x) => {
-      const cur = x.current;
-      const lo = 50;
-      const scale = (v) => Math.max(0, Math.min(100, ((v - lo) / (100 - lo)) * 100));
+      const below = x.current != null && x.current < x.target;
       return `<article class="plan" style="${cvars(x.color)}">
         <div class="plan-head">
           <div class="n"><span class="dot" style="background:var(--c-ink)"></span>${esc(x.course.code || x.course.name)}</div>
-          <label class="target">Target
-            <select data-target="${x.course.id}" aria-label="Target grade for ${esc(x.course.name)}">
-              ${TARGETS.map((t) => `<option value="${t}" ${t === x.target ? "selected" : ""}>${letter(t)} (${t}%)</option>`).join("")}
-            </select></label>
+          <span class="target num">${pct(x.current)} → ${letter(x.target)}</span>
         </div>
-        <div class="track" aria-hidden="true"><div class="fill" style="width:${cur == null ? 0 : scale(cur)}%"></div><div class="goal" style="left:calc(${scale(x.target)}% - 1.5px)"></div></div>
-        <div class="track-labels num"><span>Now ${pct(cur)}</span><span>Goal ${x.target}%</span></div>
-        ${overdueList(x)}${cur != null && cur >= x.target ? `<p class="calm">On track. Keep turning work in on time.</p>` : `<ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>`}
+        ${overdueList(x)}${below ? `<ol class="steps">${planSteps(x).map((s) => `<li><div>${s}</div></li>`).join("")}</ol>` : ""}
       </article>`;
-    }).join("") || `<div class="empty">Add a class in Canvas to see a plan.</div>`;
+    }).join("");
+    const names = fine.map((x) => esc(x.course.code || x.course.name));
+    $("#onTrack").hidden = !names.length;
+    $("#onTrack").innerHTML = names.length === shown.length && names.length
+      ? "Every class is on track with nothing overdue."
+      : `${names.join(", ")} ${names.length === 1 ? "is" : "are"} on track.`;
   }
 
   /* ---------------- data loading ---------------- */
@@ -475,6 +465,8 @@
   $("#policies").addEventListener("input", onPolicy);
   $("#policies").addEventListener("change", onPolicy);
   $("#refresh").addEventListener("click", () => refresh(true));
+  $("#openSettings").addEventListener("click", () => $("#settingsDlg").showModal());
+  $("#closeSettings").addEventListener("click", () => $("#settingsDlg").close());
 
   /* ---------------- submit dialog ---------------- */
 

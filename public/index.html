@@ -99,6 +99,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .btn.primary { background: var(--lav); color: var(--lav-ink); }
 .btn.primary:hover { filter: brightness(.97); }
 .btn.go { background: var(--ink); color: var(--bg); }
+.btn.icon { padding: 8px; }
 .btn.small { padding: 5px 11px; font-size: 12.5px; }
 .btn[disabled] { opacity: .55; cursor: default; }
 .btn svg { width: 15px; height: 15px; }
@@ -151,8 +152,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
 /* panels */
 .cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; margin-bottom: 18px; }
 @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+#app > .panel + .panel { margin-top: 18px; }
 .panel { background: var(--surface); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow); min-width: 0; }
-.panel h2 { margin: 0 0 4px; font: 600 20px/1.2 var(--display); display: flex; align-items: center; gap: 8px; }
+.panel h2 { margin: 0 0 14px; font: 600 20px/1.2 var(--display); display: flex; align-items: center; gap: 8px; }
 .panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
 .empty { color: var(--muted); padding: 18px 4px; text-align: center; font-size: 14px; }
 
@@ -302,6 +304,9 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 26px 34px; text-
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
         Refresh
       </button>
+      <button class="btn icon" id="openSettings" type="button" aria-label="Settings: targets and late penalties">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
     </div>
   </header>
 
@@ -318,8 +323,6 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 26px 34px; text-
   <main id="app">
     <section class="hello">
       <h1 id="hi">Hi there</h1>
-      <p id="today"></p>
-      <div class="stats" id="stats"></div>
     </section>
 
     <div class="note" id="demoNote" hidden>
@@ -331,32 +334,28 @@ footer { color: var(--muted); font-size: 12.5px; padding-block: 26px 34px; text-
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
     </section>
 
-    <div class="cols">
-      <section class="panel" aria-labelledby="qH">
-        <h2 id="qH">Priority queue</h2>
-        <p class="sub">Do the top one, pop it, repeat.</p>
-        <details class="policies" id="policyBox">
-          <summary>Late penalties by class</summary>
-          <div id="policies"></div>
-        </details>
-        <div id="queue"></div>
-      </section>
-      <section class="panel" aria-labelledby="dueH">
-        <h2 id="dueH">Due soon</h2>
-        <p class="sub">This week, soonest first.</p>
-        <ul class="list" id="due"></ul>
-      </section>
-    </div>
+    <section class="panel" aria-labelledby="qH">
+      <h2 id="qH">Up next</h2>
+      <div id="queue"></div>
+    </section>
 
-    <section class="panel" aria-labelledby="planH">
+    <section class="panel" aria-labelledby="planH" id="planPanel">
       <h2 id="planH">Your plan</h2>
-      <p class="sub">Pick a target per class. Classes that need attention come first.</p>
       <div class="plans" id="plans"></div>
+      <p class="calm" id="onTrack" hidden></p>
     </section>
   </main>
 
-  <footer>Grades come straight from Canvas and refresh every 2 minutes. Canvas is always the official record.</footer>
 </div>
+
+<dialog id="settingsDlg" aria-labelledby="setH">
+  <div class="dlg">
+    <div><h3 id="setH">Targets and late penalties</h3>
+      <div class="meta">Set the grade you're aiming for and each teacher's late policy. The queue and plan update right away.</div></div>
+    <div id="policies"></div>
+    <div class="dlg-foot"><span></span><button class="btn go" type="button" id="closeSettings">Done</button></div>
+  </div>
+</dialog>
 
 <dialog id="submitDlg" aria-labelledby="dlgTitle">
   <form class="dlg" id="submitForm" method="dialog">
